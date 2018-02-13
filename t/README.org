@@ -1,0 +1,31 @@
+* Declarative ~nix-makeself~ examples
+  
+Read the source to the examples to get detailed comments on how they work.
+
+** ~hello.nix~
+
+Creates a package containing [[https://www.gnu.org/software/hello/][GNU Hello]] with a simple startup script that will
+just display its version number.
+
+** ~icestorm.nix~
+
+Creates a package containing the [[http://clifford.at/icestorm][Project IceStorm]] tools, as well as Z3/Yices and
+[[https://github.com/cliffordwolf/symbiyosys][SymbiYosys]].
+
+** ~picorv32.nix~
+
+An enhanced example for [[https://github.com/cliffordwolf/picorv32][picorv32]] development that uses a fixed version of
+nixpkgs, packages up a set of RISC-V toolchains, includes all of Project
+IceStorm, Z3/Yices/Boolector, picorv32 source code, and a fancy startup script.
+This effectively gives you a complete RISC-V development, testing, and
+verification environment for FPGAs and bare metal.
+
+This binary package can synthesize, test, and verify, as well as create iCE40
+bitstreams, for all the ~picorv32~ IceStorm demos including ~picosoc~. It can
+also run the full [[https://github.com/cliffordwolf/riscv-formal][riscv-formal]] testsuite for picorv32 as well.
+
+#+BEGIN_QUOTE
+*NOTE*: The above tests of the ~picorv32~ package were run on an Ubuntu 14.04.5
+system, with the installer package created on a Fedora 27 system with multi-user
+Nix.
+#+END_QUOTE

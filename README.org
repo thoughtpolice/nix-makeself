@@ -1,0 +1,146 @@
+* ~nix-makeself~: create installer packages from Nix closures
+
+This repository contains ~nix-makeself.pl~, a tool which will create
+self-extracting installer applications, packaged using [[https://github.com/megastep/makeself][makeself]], from a set of
+specified [[https://nixos.org][Nix]] closure(s). It does this by copying the closure of the specified
+packages you give it into the installer, and when a user invokes an executable,
+a wrapper tool bind mounts the store to ~/nix~ transparently behind the scenes.
+
+The intended use of this tool, obviously, *is not* to bind mount ~/nix~ into a
+user directory so you can use Nix without ~root~ permissions on ~/~ (see
+*Credits* below for more about that.) Rather, it is intended to distribute
+installer packages to end users that do not need root *or* need ~nix~ installed
+at all to operate. It's a software distribution method, not a workaround for
+local Nix stores.
+
+** Requirements
+
+When *creating* installer packages using ~nix-makeself~:
+
+   - Nix 2.0. Get it from ~nixpkgs.nixUnstable~. (This isn't a fundamental
+     design decision, just a technical limitation as of right now.)
+   - Whatever packages you wish to install in the installer, installed into
+     the Nix store.
+
+When *using* installer packages created by ~nix-makeself~:
+
+   - Linux 3.8+ with an unbotched ~CONFIG_USERNS~ enabled.
+   - ~/usr/bin/env~ and ~bash~ on the system that will run the installer and
+     tools.
+
+Nix is *not required*, but can be installed on systems that use installers/run
+applications from them. Particular applications that run on a host system may
+have requirements beyond the above listed requirements.
+
+As a meaningless point of comparison: I was able to deploy a copy of Project
+IceStorm built from Fedora 27 with Nix (sandboxed, using the ~./t/icestorm.nix~
+package description), to a vanilla Ubuntu 14.04.5 installation, with no user
+fiddling necessary.
+
+** Usage
+
+The script is a completely self-contained ~nix-shell~ script with dependencies
+specified in the shebang: just run ~./nix-makeself.pl --version~ to get started
+by bootstrapping the perl dependencies. (This will use a recent copy of the
+~nixpkgs-unstable~ channel, so caches should be available.)
+
+There are two modes to using the tool.
+
+*** Imperative mode
+
+In the simplest case, all you have to do is provide the path to the store object
+you want to package, and the tool will take care of the rest. ~nix-makeself~
+assumes you want to package the ~/bin~ subdirectory of the given objects.
+
+For example, to package GNU Hello into a ~hello.sh~ package:
+
+#+BEGIN_SRC bash
+./nix-makeself.pl --label="GNU Hello" --subdir=hello -o hello.sh \
+  $(nix-build '<nixpkgs>' --no-out-link -A hello)
+#+END_SRC
+
+You may then install ~./hello.sh~ normally like any other ~makeself~ package.
+The resulting ~./hello/bin/hello~ executable will run GNU Hello under the ~/nix~
+bind mount.
+
+*** Declarative mode
+
+This mode is generally simpler and easier. Simply declare all your packages as a
+set of attributes in a file that can be ~import~'d, and just run with the ~-f~
+argument.
+
+For example, here is how to package all of the [[http://clifford.at/icestorm][Project Icestorm]] tools into a
+single installer (available in ~./t/icestorm.nix~ in this repository):
+
+#+BEGIN_SRC nix
+with import <nixpkgs> {};
+
+{
+  project-icestorm = {
+    label = "Project Icestorm";
+    pkgs = with pkgs;
+      [ symbiyosys yosys
+        arachne-pnr icestorm
+        yices z3
+      ];
+  };
+}
+#+END_SRC
+
+Note that this file does not take arguments; it must evaluate to an attrset on
+its own. (This may change in the future.)
+
+Then, create the package:
+
+#+BEGIN_SRC bash
+$ ./nix-makeself.pl -f ./t/icestorm.nix
+#+END_SRC
+
+You can install and use it:
+
+#+BEGIN_SRC bash
+$ ./project-icestorm.sh
+$ ./project-icestorm/bin/z3 --version
+Z3 version 4.6.0 - 64 bit
+#+END_SRC
+
+This mode is much nicer because it allows you to control your ~nixpkgs~ import a
+bit easier -- for example, if you bootstrap it from a specific revision of the
+upstream code.
+
+*** Examples
+
+    - ~./t/hello.nix~: Simplest declarative package for GNU Hello.
+
+    - ~./t/icestorm.nix~: the Project Icestorm toolset (yosys, arachne-pnr,
+      icestorm) and Z3/Yices.
+
+    - ~./t/picorv32.nix~: a more advanced example, including: a full GCC
+      toolchain for [[https://github.com/cliffordwolf/picorv32][picorv32]], a fixed version of nixpkgs, a startup script,
+      and all the icestorm tools.
+
+See ~./t/README.org~ for more.
+
+*** Full details
+
+See ~./nix-makeself.pl --help~ for more, including internal details, examples,
+bugs, and more.
+
+** Credits
+
+  - Luca Bruno's [[https://github.com/lethalman/nix-user-chroot][nix-user-chroot]] tool, which the ~nix-makeself-run~ program
+    is almost verbatim based on.
+  - Similarly, the Nix 2.0 ~--indirect~ implementation.
+
+All three of these tools have (effectively) the same implementation and,
+likewise, the same drawbacks and requirements.
+
+Note that as of Nix 2.0, if you don't want to distribute binary closures to
+random Linux users, but want to use local, user-owned, non ~/nix~ store
+directories with ~nix~ and similar tools on machines you control -- the Nix 2.0
+~--indirect~ flag makes this possible, obsoleting tools like ~nix-user-chroot~.
+Thus, if you are just using Nix locally, you do not need this tool either.
+
+** License
+
+GPLv2+. See ~COPYING~ for more information.
